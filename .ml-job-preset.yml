@@ -1,0 +1,95 @@
+distributed:
+  time_limit: 32h
+  flavor: h100-1x
+  generate_name: verl
+  master:
+    job:
+      priority: high
+      time_limit: 32h0m0s
+      image: docker-hosted.artifactory.tcsbank.ru/trs/verl:1
+      region: ix-m5-sm11
+      work_dir: /workspace
+      env:
+          DEEPSPEED_ENABLED: true
+          TOKENIZERS_PARALLELISM: false
+          NCCL_CUMEM_ENABLE: 0
+          HF_DATASETS_CACHE: /workspace/hf_cache/
+      args:
+        - bash
+        - run_master.sh
+      input: 
+        - type: files
+          src: ./verl
+          dst: "/workspace/verl"
+          mask: "**/*.py"
+        - type: files
+          src: ./
+          dst: "/workspace/"
+          mask: "**/*.sh"
+        
+         # model
+        - type: s3msk
+          src: reasoning/models/Qwen2.5-Math-1.5B
+          dst: /from_s3/models/Qwen2.5-Math-1.5B
+          bucket: trs-vsiniy
+          cache:
+            location: cluster
+            enable: true
+            created_after: "2025-05-04T21:50:01+0000"
+         
+        # data
+        - type: s3msk
+          src: reasoning/datasets/hf/gsm8k
+          dst: /from_s3/datasets/
+          bucket: trs-vsiniy
+          cache:
+            location: cluster
+            enable: true
+            created_after: "2025-04-16T08:50:01+0000"
+
+  workers:
+    - job:
+        priority: high
+        time_limit: 32h
+        region: ix-m5-sm11
+        replicas: 1
+        image: docker-hosted.artifactory.tcsbank.ru/trs/verl:1
+        work_dir: /workspace
+        env:
+            DEEPSPEED_ENABLED: true
+            TOKENIZERS_PARALLELISM: false
+            NCCL_CUMEM_ENABLE: 0
+            HF_DATASETS_CACHE: /workspace/hf_cache/
+        args:
+          - bash
+          - run_worker.sh
+        input: 
+          - type: files
+            src: ./verl
+            dst: "/workspace/verl"
+            mask: "**/*"
+          - type: files
+            src: ./
+            dst: "/workspace/"
+            mask: "**/*.sh"
+        
+          # model
+          - type: s3msk
+            src: reasoning/models/Qwen2.5-Math-1.5B
+            dst: /from_s3/models/Qwen2.5-Math-1.5B
+            bucket: trs-vsiniy
+            cache:
+              location: cluster
+              enable: true
+              created_after: "2025-05-04T21:50:01+0000"
+
+          # data
+          - type: s3msk
+            src: reasoning/datasets/hf/gsm8k
+            dst: /from_s3/datasets/
+            bucket: trs-vsiniy
+            cache:
+              location: cluster
+              enable: true
+              created_after: "2025-04-16T08:50:01+0000"
+            
